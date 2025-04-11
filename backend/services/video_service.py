@@ -219,22 +219,79 @@ class VideoService:
             font = "Arial"  # Default font, would be better to check if available
             font_size = 36
             
-            # Process each caption segment
-            captioned_video = video
-            captioned_video.audio = audio  # Set audio to the video
+            # Instead of processing segments one by one, create one composite with all words
+            text_clips = []
+            text_shadows = []
             
+            # Get video dimensions
+            screensize = video.size
+            total_h = screensize[1]
+            total_w = screensize[0]
+            wrap_w = int(total_w * 0.8)  # 80% of width for wrapping
+            
+            # Process all words in all segments
             for segment in caption_data:
-                segment_start = segment["start"]
-                captioned_video = self.animate_text(
-                    captioned_video,
-                    segment_start,
-                    [segment],  # Pass as a list of one segment
-                    audio,
-                    font,
-                    font_size
-                )
+                for word_detail in segment["words"]:
+                    word = word_detail["word"]
+                    word_start = segment["start"] + word_detail["start"]
+                    word_end = segment["end"]  # Keep word visible until segment end
+                    
+                    # Create text clip for this word
+                    word_clip = mpy.TextClip(
+                        word,
+                        fontsize=font_size,
+                        font=font,
+                        color="white",  # Always white text
+                        stroke_width=2,
+                        stroke_color="black",
+                        method='caption'
+                    )
+                    
+                    # Create shadow for this word
+                    word_shadow = mpy.TextClip(
+                        word,
+                        fontsize=font_size,
+                        font=font,
+                        color="black",  # Shadow is always black
+                        stroke_width=4,
+                        stroke_color="black",
+                        method='caption'
+                    )
+                    
+                    # Position word at center bottom
+                    word_w, word_h = word_clip.size
+                    position_x = total_w // 2 - word_w // 2
+                    position_y = int(total_h * 0.8)  # At 80% of the height
+                    
+                    # Add word clip with timing
+                    text_clips.append(
+                        word_clip
+                        .set_position((position_x, position_y))
+                        .set_start(word_start)
+                        .set_end(word_end)
+                        .crossfadein(0.1)
+                    )
+                    
+                    # Add shadow with slight offset
+                    text_shadows.append(
+                        word_shadow
+                        .set_position((position_x + 2, position_y + 2))
+                        .set_start(word_start)
+                        .set_end(word_end)
+                        .crossfadein(0.1)
+                    )
             
-            return captioned_video
+            # Create final video with all clips
+            # Make sure the final video has the original duration by explicitly setting it
+            result = mpy.CompositeVideoClip(
+                [video] + text_shadows + text_clips,
+                size=video.size
+            ).set_duration(video.duration)
+            
+            # Set audio properly
+            result.audio = audio
+            
+            return result
         except Exception as e:
             self.logger.error(f"Error adding captions to video: {str(e)}")
             # Fallback to returning the video without captions
@@ -249,15 +306,15 @@ class VideoService:
         audioclip,
         font="Arial",
         font_size=36,
-        text_color="white",
+        text_color="white",  # Changed default color to white
         stroke_color="black",
-        stroke_width=8,
-        highlight_color="red",
-        fade_duration=0.3,
-        stay_duration=0.8,
+        stroke_width=2,  # Reduced stroke width
+        highlight_color="red",  # Changed highlight to white too
+        fade_duration=0.1,  # Faster fade for better sync
+        stay_duration=0.5,
         wrap_width_ratio=0.8,
-        shadow_offset=5,
-        shadow_grow=3,
+        shadow_offset=2,  # Reduced shadow offset
+        shadow_grow=1,  # Reduced shadow grow
     ):
         """
         Adds audio and text to a video clip
@@ -309,6 +366,7 @@ class VideoService:
                         color=highlight_color if highlight else text_color,
                         stroke_width=stroke_width,
                         stroke_color=stroke_color,
+                        method='caption',  # Use caption method for better text rendering
                     )
                     word_shadow = mpy.TextClip(
                         word,
@@ -317,6 +375,7 @@ class VideoService:
                         color=stroke_color,
                         stroke_width=stroke_width + shadow_grow,
                         stroke_color=stroke_color,
+                        method='caption',
                     )
                     all_word_clips.append((word_clip, word_shadow, start_t, end_t))
 
@@ -342,7 +401,7 @@ class VideoService:
                 if len(line) > 0:
                     all_lines.append(([l for l in line], width, max_h))
 
-                curr_h = int((total_h - height) / 2)
+                curr_h = int(total_h * 0.8)  # Position text at 80% of screen height
                 for line_items, line_width, line_height in all_lines:
                     curr_w = int((total_w - line_width) / 2)
                     for word_clip, word_shadow, word_start, word_end in line_items:
@@ -351,7 +410,6 @@ class VideoService:
                             .set_start(word_start)
                             .set_end(sentence_end_t)
                             .crossfadein(fade_duration)
-                            .crossfadeout(fade_duration)
                         )
                         text_shadows.append(
                             word_shadow.set_position(
@@ -360,16 +418,16 @@ class VideoService:
                             .set_start(word_start)
                             .set_end(sentence_end_t)
                             .crossfadein(fade_duration)
-                            .crossfadeout(fade_duration)
                         )
                         curr_w += word_clip.size[0]
                     curr_h += line_height
 
-            # Create the caption overlay
-            captions = mpy.CompositeVideoClip([video] + text_shadows + text_clips)
+            # Create the caption overlay with explicit duration from the input video
+            captions = mpy.CompositeVideoClip(
+                [video] + text_shadows + text_clips,
+                size=video.size
+            ).set_duration(video.duration)
             
-            # We don't need to reset the audio here as it's already set on the input video
-            # and we're returning a composite that includes the original video
             return captions
         except Exception as e:
             self.logger.error(f"Error in animate_text: {str(e)}")
