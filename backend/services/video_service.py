@@ -72,14 +72,6 @@ class VideoService:
                 # Concatenate all clips
                 video = mpy.concatenate_videoclips(clips, method="compose")
             
-            video.write_videofile(
-                str(output_file) + "preview", 
-                codec='libx264', 
-                audio_codec='aac', 
-                fps=24, 
-                threads=4,
-                logger=None  # Suppress MoviePy progress bars
-            )
             # Generate caption timings based on the script
             caption_data = self._generate_caption_timings(script, duration)
             self.logger.info(f"Generated {len(caption_data)} caption segments")

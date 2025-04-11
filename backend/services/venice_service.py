@@ -49,7 +49,7 @@ class VeniceService:
                                 "content": f"Create a viral social media script about {content} in the style of {style} brainrot videos. The script should be about {duration_seconds} seconds when read aloud."
                             }
                         ],
-                        "max_tokens": 500
+                        "max_tokens": 1000
                     }
                 )
                 response.raise_for_status()
