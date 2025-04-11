@@ -60,8 +60,8 @@ async def generate(
     This endpoint will:
     1. Generate a script using Venice AI
     2. Convert the script to speech using TTS
-    3. Generate an image based on the content and style
-    4. Combine the image, speech, and subtitles into a video
+    3. Generate multiple images based on the content and style (1 per 10s of audio)
+    4. Combine the images, speech, and subtitles into a video
     5. Upload the video to IPFS
     6. Create and upload metadata to IPFS
     7. Return the metadata URI

@@ -80,7 +80,7 @@ class VeniceService:
             script (str): The script to convert to speech
             
         Returns:
-            str: Path to the saved audio file
+            tuple: (Path to the saved audio file, duration in seconds)
         """
         try:
             self.logger.info("Generating TTS from script")
@@ -104,7 +104,21 @@ class VeniceService:
                     f.write(response.content)
                 
                 self.logger.info(f"Audio saved to {audio_file}")
-                return str(audio_file)
+                
+                # Get duration of the audio file using moviepy
+                try:
+                    import moviepy.editor as mpy
+                    audio_clip = mpy.AudioFileClip(str(audio_file))
+                    duration = audio_clip.duration
+                    audio_clip.close()
+                    self.logger.info(f"Audio duration: {duration} seconds")
+                except Exception as e:
+                    self.logger.error(f"Error getting audio duration: {str(e)}")
+                    # Estimate duration based on script length (about 15 characters per second as fallback)
+                    duration = len(script) / 15.0
+                    self.logger.info(f"Estimated audio duration: {duration} seconds (based on text length)")
+                
+                return str(audio_file), duration
         except httpx.ConnectError as e:
             self.logger.error(f"Connection error to Venice API: {str(e)}")
             raise Exception(f"Failed to connect to Venice API: {str(e)}")
