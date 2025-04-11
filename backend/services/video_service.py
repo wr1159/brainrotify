@@ -173,7 +173,7 @@ class VideoService:
                 
                 for i, word in enumerate(words):
                     # Define if this word should be highlighted (every 3rd word)
-                    highlighted = (i % 3 == 0)
+                    highlighted = (i % 4 == 0)
                     
                     words_meta.append({
                         "word": word,
@@ -227,59 +227,81 @@ class VideoService:
             screensize = video.size
             total_h = screensize[1]
             total_w = screensize[0]
-            wrap_w = int(total_w * 0.8)  # 80% of width for wrapping
             
-            # Process all words in all segments
+            # Flatten all words from all segments into a single chronological list
+            all_words = []
             for segment in caption_data:
+                segment_start = segment["start"]
                 for word_detail in segment["words"]:
                     word = word_detail["word"]
-                    word_start = segment["start"] + word_detail["start"]
-                    word_end = segment["end"]  # Keep word visible until segment end
-                    
-                    # Create text clip for this word
-                    word_clip = mpy.TextClip(
-                        word,
-                        fontsize=font_size,
-                        font=font,
-                        color="white",  # Always white text
-                        stroke_width=2,
-                        stroke_color="black",
-                        method='caption'
-                    )
-                    
-                    # Create shadow for this word
-                    word_shadow = mpy.TextClip(
-                        word,
-                        fontsize=font_size,
-                        font=font,
-                        color="black",  # Shadow is always black
-                        stroke_width=4,
-                        stroke_color="black",
-                        method='caption'
-                    )
-                    
-                    # Position word at center bottom
-                    word_w, word_h = word_clip.size
-                    position_x = total_w // 2 - word_w // 2
-                    position_y = int(total_h * 0.8)  # At 80% of the height
-                    
-                    # Add word clip with timing
-                    text_clips.append(
-                        word_clip
-                        .set_position((position_x, position_y))
-                        .set_start(word_start)
-                        .set_end(word_end)
-                        .crossfadein(0.1)
-                    )
-                    
-                    # Add shadow with slight offset
-                    text_shadows.append(
-                        word_shadow
-                        .set_position((position_x + 2, position_y + 2))
-                        .set_start(word_start)
-                        .set_end(word_end)
-                        .crossfadein(0.1)
-                    )
+                    word_start = segment_start + word_detail["start"]
+                    all_words.append({
+                        "word": word,
+                        "start": word_start,
+                        "highlighted": word_detail["highlighted"]
+                    })
+            
+            # Sort words by their start time
+            all_words.sort(key=lambda w: w["start"])
+            
+            # Process words chronologically, setting each word to end when the next one starts
+            for i, word_info in enumerate(all_words):
+                word = word_info["word"]
+                word_start = word_info["start"]
+                highlighted = word_info["highlighted"]
+                
+                # The word ends when the next word starts, or after a fixed duration for the last word
+                if i < len(all_words) - 1:
+                    word_end = all_words[i + 1]["start"]
+                else:
+                    word_end = word_start + 1.0  # Last word stays for 1 second
+                
+                # Create text clip for this word
+                word_clip = mpy.TextClip(
+                    word,
+                    fontsize=font_size,
+                    font=font,
+                    color="red" if highlighted else "white",  # Highlighted words are red
+                    stroke_width=2,
+                    stroke_color="black",
+                    method='caption'
+                )
+                
+                # Create shadow for this word
+                word_shadow = mpy.TextClip(
+                    word,
+                    fontsize=font_size,
+                    font=font,
+                    color="black",  # Shadow is always black
+                    stroke_width=4,
+                    stroke_color="black",
+                    method='caption'
+                )
+                
+                # Position word at center bottom
+                word_w, word_h = word_clip.size
+                position_x = total_w // 2 - word_w // 2
+                position_y = int(total_h * 0.8)  # At 80% of the height
+                
+                # Add word clip with precise timing
+                text_clips.append(
+                    word_clip
+                    .set_position((position_x, position_y))
+                    .set_start(word_start)
+                    .set_end(word_end)
+                    .crossfadein(0.05)  # Quick fade in
+                    .crossfadeout(0.05)  # Quick fade out
+                )
+                
+                # Add shadow with slight offset
+                text_shadows.append(
+                    word_shadow
+                    .set_position((position_x + 2, position_y + 2))
+                    .set_start(word_start)
+                    .set_end(word_end)
+                    .crossfadein(0.05)
+                    .crossfadeout(0.05)
+                )
             
             # Create final video with all clips
             # Make sure the final video has the original duration by explicitly setting it
