@@ -163,7 +163,21 @@ class VideoService:
                 sentence_duration = sentence_chars * char_duration
                 
                 # Create word-level timing within the sentence
-                words = re.findall(r'\b\w+\b|[^\w\s]', sentence)
+                # Use a regex that keeps contractions and words with apostrophes together
+                words = []
+                # First split by spaces to get word groups
+                word_groups = sentence.split()
+                for group in word_groups:
+                    # Check if this is a single word (possibly with apostrophe) or multiple words with punctuation
+                    if re.match(r"^[\w']+[,.!?:;]*$", group):
+                        # It's a single word (possibly with trailing punctuation)
+                        words.append(group)
+                    else:
+                        # It might contain multiple words or special characters
+                        # Split while preserving apostrophes within words
+                        parts = re.findall(r"[\w']+|[^\w\s]", group)
+                        words.extend(parts)
+                
                 if not words:
                     continue
                 
@@ -172,16 +186,26 @@ class VideoService:
                 word_time = current_time
                 
                 for i, word in enumerate(words):
-                    # Define if this word should be highlighted (every 3rd word)
+                    # Define if this word should be highlighted (every 4th word)
                     highlighted = (i % 4 == 0)
                     
-                    words_meta.append({
-                        "word": word,
-                        "start": word_time - current_time,  # Relative to sentence start
-                        "end": word_time - current_time + word_duration,
-                        "highlighted": highlighted
-                    })
-                    word_time += word_duration
+                    # Give end-of-sentence punctuation extra time
+                    if word == '.' or word == "?" or word == "!": 
+                        words_meta.append({
+                            "word": word,
+                            "start": word_time - current_time,  # Relative to sentence start
+                            "end": word_time - current_time + 0.5,
+                            "highlighted": highlighted
+                        })
+                        word_time += 0.5
+                    else:
+                        words_meta.append({
+                            "word": word,
+                            "start": word_time - current_time,  # Relative to sentence start
+                            "end": word_time - current_time + word_duration,
+                            "highlighted": highlighted
+                        })
+                        word_time += word_duration
                 
                 caption_data.append({
                     "start": current_time,
