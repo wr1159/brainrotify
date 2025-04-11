@@ -42,7 +42,7 @@ class VeniceService:
                         "messages": [
                             {
                                 "role": "system",
-                                "content": "You are an expert in creating viral social media scripts in Text directly. There is only one character and that is the narrator so the script is what the narrator will narrate. Return the script directly WITHOUT any sound effects or pauses in paranthesis ."
+                                "content": "You are an expert in creating viral social media scripts in Text directly. There is only one character and that is the narrator so the script is what the narrator will narrate. Return the script directly WITHOUT any sound effects or pauses in paranthesis. Do not explain the script."
                             },
                             {
                                 "role": "user",
