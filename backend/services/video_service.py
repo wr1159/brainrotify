@@ -16,12 +16,12 @@ class VideoService:
         os.makedirs(self.temp_dir, exist_ok=True)
         self.logger = logging.getLogger(__name__)
     
-    async def create_video(self, image_path, audio_path, script):
+    async def create_video(self, image_paths, audio_path, script):
         """
-        Create a video with the image and audio.
+        Create a video with multiple images and audio.
         
         Args:
-            image_path (str): Path to the background image
+            image_paths (list): List of paths to the background images
             audio_path (str): Path to the audio file
             script (str): The script text (not used directly in this implementation)
             
@@ -37,16 +37,38 @@ class VideoService:
             duration = audio.duration
             self.logger.info(f"Audio duration: {duration} seconds")
             
-            # Create a static image clip with the same duration as the audio
-            image_clip = mpy.ImageClip(image_path).set_duration(duration)
-            self.logger.info(f"Image loaded with duration: {duration} seconds")
+            if not image_paths:
+                raise ValueError("No image paths provided")
             
-            # Ensure the video is in the right aspect ratio (9:16 for vertical videos)
-            video = self._crop_to_aspect(image_clip, aspect=9/16)
-            
-            # Add a simple fade-in and fade-out effect instead of zoom
-            # This avoids the problematic resize operation
-            video = video.fadein(1).fadeout(1)
+            if len(image_paths) == 1:
+                # If only one image, use the original method
+                image_clip = mpy.ImageClip(image_paths[0]).set_duration(duration)
+                video = self._crop_to_aspect(image_clip, aspect=9/16)
+                video = video.fadein(1).fadeout(1)
+            else:
+                # For multiple images, split the duration among them
+                self.logger.info(f"Creating video with {len(image_paths)} images")
+                segment_duration = duration / len(image_paths)
+                clips = []
+                
+                for i, img_path in enumerate(image_paths):
+                    # Create image clip
+                    img_clip = mpy.ImageClip(img_path).set_duration(segment_duration)
+                    # Crop to correct aspect ratio
+                    img_clip = self._crop_to_aspect(img_clip, aspect=9/16)
+                    
+                    # Add fade effects (except for first and last clip which only need one fade)
+                    if i == 0:
+                        img_clip = img_clip.fadein(1).crossfadeout(1)
+                    elif i == len(image_paths) - 1:
+                        img_clip = img_clip.crossfadein(1).fadeout(1)
+                    else:
+                        img_clip = img_clip.crossfadein(1).crossfadeout(1)
+                    
+                    clips.append(img_clip)
+                
+                # Concatenate all clips
+                video = mpy.concatenate_videoclips(clips, method="compose")
             
             # Add the audio to the video
             video.audio = audio

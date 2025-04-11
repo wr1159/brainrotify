@@ -16,13 +16,14 @@ class GenerationService:
         )
         self.logger = logging.getLogger(__name__)
     
-    async def generate_content(self, content, style, duration=60):
-        """Generate a full video including script, TTS, image, and upload to IPFS.
+    async def generate_content(self, content, style, duration=60, image_count=5):
+        """Generate a full video including script, TTS, multiple images, and upload to IPFS.
         
         Args:
             content (str): The topic for the video
             style (str): The style of brainrot content
             duration (int, optional): Target duration in seconds. Defaults to 60.
+            image_count (int, optional): Number of images to generate. Defaults to 5.
             
         Returns:
             dict: Result containing metadata_uri, video_uri, and script
@@ -36,13 +37,13 @@ class GenerationService:
             self.logger.info("Generating TTS")
             audio_file = await self.venice_service.generate_tts(script)
             
-            # 3. Generate image and get the file path directly
-            self.logger.info("Generating Image")
-            image_file = await self.venice_service.generate_image(content, style)
+            # 3. Generate multiple images based on the script and get the file paths
+            self.logger.info(f"Generating {image_count} Images")
+            image_files = await self.venice_service.generate_multiple_images(content, style, script, count=image_count)
             
-            # 4. Create video with animated text
-            self.logger.info("Creating Video")
-            video_file = await self.video_service.create_video(image_file, audio_file, script)
+            # 4. Create video with multiple images and audio
+            self.logger.info("Creating Video with Multiple Images")
+            video_file = await self.video_service.create_video(image_files, audio_file, script)
             
             # 5. Upload video to IPFS
             self.logger.info("Uploading Video")
@@ -58,7 +59,7 @@ class GenerationService:
             
             # 8. Cleanup temporary files
             # await self.video_service.cleanup()
-            self.venice_service.cleanup()
+            # self.venice_service.cleanup()
             
             # 9. Return result
             return {
@@ -70,6 +71,6 @@ class GenerationService:
         except Exception as e:
             # Make sure to clean up on error
             # await self.video_service.cleanup()
-            self.venice_service.cleanup()
+            # self.venice_service.cleanup()
             self.logger.error(f"Error in generate_content: {str(e)}")
             raise e 
