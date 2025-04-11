@@ -143,77 +143,84 @@ class VideoService:
         try:
             self.logger.info("Generating caption timings")
             
-            # Split the script into sentences
-            sentences = re.split(r'(?<=[.!?])\s+', script.strip())
-            sentences = [s for s in sentences if s.strip()]
+            # For better sync, use a single segment approach instead of sentences
+            # This avoids issues with sentence segmentation affecting timing
             
-            if not sentences:
+            # First, get all words while preserving contractions
+            words = []
+            word_groups = script.strip().split()
+            for group in word_groups:
+                # Check if this is a single word (possibly with apostrophe) or multiple words with punctuation
+                if re.match(r"^[\w']+[,.!?:;]*$", group):
+                    # It's a single word (possibly with trailing punctuation)
+                    words.append(group)
+                else:
+                    # It might contain multiple words or special characters
+                    # Split while preserving apostrophes within words
+                    parts = re.findall(r"[\w']+|[^\w\s]", group)
+                    words.extend(parts)
+            
+            if not words:
                 return []
             
-            # Estimate the duration for each sentence based on character count
-            total_chars = sum(len(s) for s in sentences)
-            char_duration = duration / total_chars if total_chars > 0 else 0
+            # Calculate average word duration, with special handling for punctuation
+            # Count special characters as shorter
+            total_word_weights = 0
+            for word in words:
+                if re.match(r'^[,.!?:;-]$', word):  # Single punctuation
+                    total_word_weights += 0.5  # Punctuation counts as half a word
+                else:
+                    # Words are weighted by their length
+                    word_len = len(word)
+                    if word_len <= 2:  # Very short words
+                        total_word_weights += 0.7
+                    elif word_len <= 4:  # Short words
+                        total_word_weights += 0.9
+                    else:  # Normal and long words
+                        total_word_weights += 1.0 + min(0.5, (word_len - 5) * 0.1)  # Add small weight for longer words
             
-            caption_data = []
+            # Calculate base word duration
+            base_word_duration = duration / total_word_weights if total_word_weights > 0 else 0.3
+            
+            # Prepare the words with timing
+            words_meta = []
             current_time = 0
             
-            for sentence in sentences:
-                # Estimate sentence duration based on character count
-                sentence_chars = len(sentence)
-                sentence_duration = sentence_chars * char_duration
+            for i, word in enumerate(words):
+                # Set dynamic word duration based on word characteristics
+                if re.match(r'^[,.!?:;]$', word):  # Single punctuation
+                    word_duration = base_word_duration * 0.5
+                    # Give extra pause after end of sentence punctuation
+                    if word in ".!?":
+                        word_duration = base_word_duration * 0.8
+                else:
+                    # Words are timed by their length
+                    word_len = len(word)
+                    if word_len <= 2:  # Very short words
+                        word_duration = base_word_duration * 0.7
+                    elif word_len <= 4:  # Short words
+                        word_duration = base_word_duration * 0.9
+                    else:  # Normal and long words
+                        word_duration = base_word_duration * (1.0 + min(0.5, (word_len - 5) * 0.1))
                 
-                # Create word-level timing within the sentence
-                # Use a regex that keeps contractions and words with apostrophes together
-                words = []
-                # First split by spaces to get word groups
-                word_groups = sentence.split()
-                for group in word_groups:
-                    # Check if this is a single word (possibly with apostrophe) or multiple words with punctuation
-                    if re.match(r"^[\w']+[,.!?:;]*$", group):
-                        # It's a single word (possibly with trailing punctuation)
-                        words.append(group)
-                    else:
-                        # It might contain multiple words or special characters
-                        # Split while preserving apostrophes within words
-                        parts = re.findall(r"[\w']+|[^\w\s]", group)
-                        words.extend(parts)
+                # Every 4th word is highlighted (except punctuation)
+                highlighted = (i % 4 == 0) and not re.match(r'^[,.!?:;]$', word)
                 
-                if not words:
-                    continue
-                
-                word_duration = sentence_duration / len(words)
-                words_meta = []
-                word_time = current_time
-                
-                for i, word in enumerate(words):
-                    # Define if this word should be highlighted (every 4th word)
-                    highlighted = (i % 4 == 0)
-                    
-                    # Give end-of-sentence punctuation extra time
-                    if word == '.' or word == "?" or word == "!": 
-                        words_meta.append({
-                            "word": word,
-                            "start": word_time - current_time,  # Relative to sentence start
-                            "end": word_time - current_time + 0.5,
-                            "highlighted": highlighted
-                        })
-                        word_time += 0.5
-                    else:
-                        words_meta.append({
-                            "word": word,
-                            "start": word_time - current_time,  # Relative to sentence start
-                            "end": word_time - current_time + word_duration,
-                            "highlighted": highlighted
-                        })
-                        word_time += word_duration
-                
-                caption_data.append({
+                words_meta.append({
+                    "word": word,
                     "start": current_time,
-                    "end": current_time + sentence_duration,
-                    "words": words_meta
+                    "end": current_time + word_duration,
+                    "highlighted": highlighted
                 })
                 
-                current_time += sentence_duration
+                current_time += word_duration
+            
+            # Package it as a single caption segment
+            caption_data = [{
+                "start": 0,
+                "end": duration,
+                "words": words_meta
+            }]
             
             return caption_data
         except Exception as e:
@@ -241,63 +248,44 @@ class VideoService:
             
             # Set up font and sizing
             font = "Arial"  # Default font, would be better to check if available
-            font_size = 36
-            
-            # Instead of processing segments one by one, create one composite with all words
-            text_clips = []
-            text_shadows = []
+            font_size = 42  # Increased size for better readability
             
             # Get video dimensions
             screensize = video.size
             total_h = screensize[1]
             total_w = screensize[0]
             
-            # Flatten all words from all segments into a single chronological list
+            # Extract all words with absolute timing
             all_words = []
             for segment in caption_data:
-                segment_start = segment["start"]
                 for word_detail in segment["words"]:
-                    word = word_detail["word"]
-                    word_start = segment_start + word_detail["start"]
                     all_words.append({
-                        "word": word,
-                        "start": word_start,
+                        "word": word_detail["word"],
+                        "start": word_detail["start"],
+                        "end": word_detail["end"],
                         "highlighted": word_detail["highlighted"]
                     })
             
-            # Sort words by their start time
-            all_words.sort(key=lambda w: w["start"])
+            # Create clips for each word
+            text_clips = []
             
-            # Process words chronologically, setting each word to end when the next one starts
-            for i, word_info in enumerate(all_words):
+            for word_info in all_words:
                 word = word_info["word"]
                 word_start = word_info["start"]
+                word_end = word_info["end"]
                 highlighted = word_info["highlighted"]
                 
-                # The word ends when the next word starts, or after a fixed duration for the last word
-                if i < len(all_words) - 1:
-                    word_end = all_words[i + 1]["start"]
-                else:
-                    word_end = word_start + 1.0  # Last word stays for 1 second
+                # Skip empty words
+                if not word.strip():
+                    continue
                 
-                # Create text clip for this word
+                # Create text clip for this word (with built-in shadow effect)
                 word_clip = mpy.TextClip(
                     word,
                     fontsize=font_size,
                     font=font,
-                    color="red" if highlighted else "white",  # Highlighted words are red
+                    color="red" if highlighted else "white",
                     stroke_width=2,
-                    stroke_color="black",
-                    method='caption'
-                )
-                
-                # Create shadow for this word
-                word_shadow = mpy.TextClip(
-                    word,
-                    fontsize=font_size,
-                    font=font,
-                    color="black",  # Shadow is always black
-                    stroke_width=4,
                     stroke_color="black",
                     method='caption'
                 )
@@ -305,39 +293,33 @@ class VideoService:
                 # Position word at center bottom
                 word_w, word_h = word_clip.size
                 position_x = total_w // 2 - word_w // 2
-                position_y = int(total_h * 0.8)  # At 80% of the height
+                position_y = int(total_h * 0.85)  # Lower on screen (85% of height)
                 
                 # Add word clip with precise timing
-                text_clips.append(
-                    word_clip
-                    .set_position((position_x, position_y))
-                    .set_start(word_start)
-                    .set_end(word_end)
-                    .crossfadein(0.05)  # Quick fade in
-                    .crossfadeout(0.05)  # Quick fade out
-                )
+                # Using a short crossfade for smoother transitions
+                text_clips.append((word_clip
+                       .set_position((position_x, position_y))
+                       .set_start(word_start)
+                       .set_end(word_end)))
                 
-                # Add shadow with slight offset
-                text_shadows.append(
-                    word_shadow
-                    .set_position((position_x + 2, position_y + 2))
-                    .set_start(word_start)
-                    .set_end(word_end)
-                    .crossfadein(0.05)
-                    .crossfadeout(0.05)
-                )
             
             # Create final video with all clips
-            # Make sure the final video has the original duration by explicitly setting it
-            result = mpy.CompositeVideoClip(
-                [video] + text_shadows + text_clips,
-                size=video.size
-            ).set_duration(video.duration)
-            
-            # Set audio properly
-            result.audio = audio
-            
-            return result
+            # Make sure the final video has the original duration
+            if text_clips:
+                result = mpy.CompositeVideoClip(
+                    [video] + text_clips,
+                    size=video.size
+                ).set_duration(video.duration)
+                
+                # Set audio properly
+                result.audio = audio
+                
+                return result
+            else:
+                # If no text clips created, return original video with audio
+                video.audio = audio
+                return video
+                
         except Exception as e:
             self.logger.error(f"Error adding captions to video: {str(e)}")
             # Fallback to returning the video without captions
