@@ -1,4 +1,4 @@
-# Brain Rot AI PumpFun
+# Brain Rot AI PumpFun (Brainrotify)
 
 Submission for Encode AI Hackathon
 
@@ -8,4 +8,17 @@ Submission for Encode AI Hackathon
 - [ ] contract to create coins with zora coin creation, bonding curve and liquidity migration
 - [ ] backend to generate videos given topic and style (minecraft parkour / soap cutting)
 
-
+## User Flow
+1. User type initial content for reel to be about - Chernobyl, Turtles, Anything really.
+2. User select brainrot content - Minecraft Parkour, Soap Cutting, Subway Surfers. 
+3. Pay Address 0.002 ETH and send API Request.
+4. Script is generated from initial content.
+5. Script is fed to TTS.
+6. Image is generated based on clips.
+7. Add subtitles based on script.
+8. Video is created by splicing Image, Voice and Subtitles. Combining until script is ended
+9. Upload Video to IPFS
+10. Create metadata and upload to IPFS
+11. Return IPFS Uri. Back to Frontend.
+12. Frontend calls createCoin function of Zora Coin.
+13. Display Video and show Contract Address.
