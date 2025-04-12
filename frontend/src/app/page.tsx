@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import Image from "next/image";
+import ConnectButton from "@/components/ConnectButton";
 
 // Shooting Stars Component
 const ShootingStars = () => {
@@ -24,6 +25,8 @@ const ShootingStars = () => {
         </div>
     );
 };
+
+
 
 export default function Home() {
     
@@ -50,6 +53,9 @@ export default function Home() {
     return (
         <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white p-8 relative">
             <ShootingStars />
+            <div className="w-full flex justify-center pb-4">
+                    <ConnectButton />
+                </div>
 
             {/* Left GIF */}
             <div className="fixed left-4 -translate-y-1/2 hidden top-1/2 xl:block">
