@@ -54,22 +54,22 @@ export default function Home() {
             <ShootingStars />
 
             {/* Left GIF */}
-            <div className="fixed left-4 -translate-y-1/2 hidden top-1/4 xl:block">
+            <div className="fixed left-4 -translate-y-1/2 hidden top-1/2 xl:block">
                 <Image
                     src="/subway-surfer.gif"
                     alt="Spinning brain gif"
-                    width={250}
+                    width={400}
                     height={800}
                     className="rounded-lg opacity-100 hover:opacity-100 transition-opacity"
                 />
             </div>
 
             {/* Right GIF */}
-            <div className="fixed right-4 -translate-y-1/2 hidden top-1/4 xl:block">
+            <div className="fixed right-4 -translate-y-1/2 hidden top-1/2 xl:block">
                 <Image
                     src="/subway-surfer.gif"
                     alt="Matrix brain gif"
-                    width={250}
+                    width={400}
                     height={800}
                     className="rounded-lg opacity-100 hover:opacity-100 transition-opacity"
                 />
