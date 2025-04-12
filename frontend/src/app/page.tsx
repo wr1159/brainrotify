@@ -3,6 +3,12 @@
 import { useState, useRef } from "react";
 import Image from "next/image";
 import ConnectButton from "@/components/ConnectButton";
+import { createCoin, CreateCoinArgs } from "@zoralabs/coins-sdk";
+import { Hex, createWalletClient, createPublicClient, http, Address } from "viem";
+import { base, baseSepolia } from "viem/chains";
+import { useAccount } from "wagmi";
+ 
+
 
 // Shooting Stars Component
 const ShootingStars = () => {
@@ -33,6 +39,39 @@ export default function Home() {
     const [description, setDescription] = useState("");
     const [showVideo, setShowVideo] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const { address } = useAccount();
+    const publicClient = createPublicClient({
+    
+      chain: baseSepolia,
+      transport: http("https://base-sepolia.drpc.org"),
+    });
+    const walletClient = createWalletClient({
+      account: address,
+      chain: baseSepolia,
+      transport: http("https://base-sepolia.drpc.org"),
+    })
+    const coinParams: CreateCoinArgs = {
+      name: description,
+      symbol: ticker,
+      uri: "ipfs://bafybeigoxzqzbnxsn35vq7lls3ljxdcwjafxvbvkivprsodzrptpiguysy",
+      payoutRecipient: address as Address,
+      initialPurchaseWei: 0n,
+    };
+    async function createMyCoin() {
+      try {
+        const result = await createCoin(coinParams, walletClient, publicClient);
+        
+        console.log("Transaction hash:", result.hash);
+        console.log("Coin address:", result.address);
+        console.log("Deployment details:", result.deployment);
+        
+        return result;
+      } catch (error) {
+        console.error("Error creating coin:", error);
+        throw error;
+      }
+    }
+     
 
     const handleClick = () => {
         setShowVideo(true);
@@ -114,7 +153,7 @@ export default function Home() {
 
                 <button
                     className="w-full mt-8 px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg text-white font-bold hover:opacity-90 transition-opacity"
-                    onClick={handleClick}
+                    onClick={createMyCoin}
                 >
                     Generate Brain Rot Video
                 </button>
