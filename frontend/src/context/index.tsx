@@ -19,7 +19,7 @@ if (!projectId) {
 const metadata = {
     name: "brainrotify",
     description: "AppKit Example",
-    url: "https://reown.com/appkit", // origin must match your domain & subdomain
+    url: "https://brainrotify-topaz.vercel.app/", // origin must match your domain & subdomain
     icons: ["https://assets.reown.com/reown-profile-pic.png"],
 };
 

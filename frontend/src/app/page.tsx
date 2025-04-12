@@ -3,12 +3,8 @@
 import { useState, useRef } from "react";
 import Image from "next/image";
 import ConnectButton from "@/components/ConnectButton";
-import { createCoin, CreateCoinArgs } from "@zoralabs/coins-sdk";
-import { Hex, createWalletClient, createPublicClient, http, Address } from "viem";
-import { base, baseSepolia } from "viem/chains";
-import { useAccount } from "wagmi";
- 
-
+import { useAccount, useWriteContract } from "wagmi";
+import { zoraFactoryABI, zoraFactoryAddress } from "@/contract";
 
 // Shooting Stars Component
 const ShootingStars = () => {
@@ -40,38 +36,54 @@ export default function Home() {
     const [showVideo, setShowVideo] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
     const { address } = useAccount();
-    const publicClient = createPublicClient({
-    
-      chain: baseSepolia,
-      transport: http("https://base-sepolia.drpc.org"),
-    });
-    const walletClient = createWalletClient({
-      account: address,
-      chain: baseSepolia,
-      transport: http("https://base-sepolia.drpc.org"),
-    })
-    const coinParams: CreateCoinArgs = {
-      name: description,
-      symbol: ticker,
-      uri: "ipfs://bafybeigoxzqzbnxsn35vq7lls3ljxdcwjafxvbvkivprsodzrptpiguysy",
-      payoutRecipient: address as Address,
-      initialPurchaseWei: 0n,
-    };
+    const metadataUri = `ipfs://bafybeigoxzqzbnxsn35vq7lls3ljxdcwjafxvbvkivprsodzrptpiguysy`;
+    const { writeContract, isSuccess, isError, error } = useWriteContract();
     async function createMyCoin() {
-      try {
-        const result = await createCoin(coinParams, walletClient, publicClient);
-        
-        console.log("Transaction hash:", result.hash);
-        console.log("Coin address:", result.address);
-        console.log("Deployment details:", result.deployment);
-        
-        return result;
-      } catch (error) {
-        console.error("Error creating coin:", error);
-        throw error;
-      }
+        try {
+            // const result = await createCoin(
+            //     coinParams,
+            //     walletClient,
+            //     publicClient
+            // );
+            // const resp = await fetch("http://localhost:8000/generate", {
+            //     method: "POST",
+            //     headers: {
+            //         "Content-Type": "application/json",
+            //     },
+            //     body: JSON.stringify({
+            //         style: style,
+            //         content: content,
+            //         ticker: ticker,
+            //         description: description,
+            //     }),
+            // });
+            // const data = await resp.json();
+            // const metadataUri = data.metadata_uri;
+            writeContract({
+                address: zoraFactoryAddress,
+                abi: zoraFactoryABI,
+                functionName: "deploy",
+                args: [
+                    address,
+                    [address],
+                    metadataUri,
+                    description,
+                    ticker,
+                    "0x0000000000000000000000000000000000000000",
+                    "0x4200000000000000000000000000000000000006",
+                    -208200,
+                    0,
+                ],
+            });
+            console.log("isError", isError);
+            console.log("error", error);
+
+            return isSuccess;
+        } catch (error) {
+            console.error("Error creating coin:", error);
+            throw error;
+        }
     }
-     
 
     const handleClick = () => {
         setShowVideo(true);
