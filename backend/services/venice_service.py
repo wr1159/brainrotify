@@ -42,14 +42,14 @@ class VeniceService:
                         "messages": [
                             {
                                 "role": "system",
-                                "content": "You are an expert in creating viral social media scripts in Text directly. There is only one character and that is the narrator so the script is what the narrator will narrate. Return the script directly WITHOUT any sound effects or pauses in paranthesis ."
+                                "content": "You are an expert in creating viral social media scripts in Text directly. There is only one character and that is the narrator so the script is what the narrator will narrate. Return the script directly WITHOUT any sound effects or pauses in paranthesis. Do not explain the script."
                             },
                             {
                                 "role": "user",
                                 "content": f"Create a viral social media script about {content} in the style of {style} brainrot videos. The script should be about {duration_seconds} seconds when read aloud."
                             }
                         ],
-                        "max_tokens": 500
+                        "max_tokens": 1000
                     }
                 )
                 response.raise_for_status()
@@ -80,7 +80,7 @@ class VeniceService:
             script (str): The script to convert to speech
             
         Returns:
-            str: Path to the saved audio file
+            tuple: (Path to the saved audio file, duration in seconds)
         """
         try:
             self.logger.info("Generating TTS from script")
@@ -104,7 +104,21 @@ class VeniceService:
                     f.write(response.content)
                 
                 self.logger.info(f"Audio saved to {audio_file}")
-                return str(audio_file)
+                
+                # Get duration of the audio file using moviepy
+                try:
+                    import moviepy.editor as mpy
+                    audio_clip = mpy.AudioFileClip(str(audio_file))
+                    duration = audio_clip.duration
+                    audio_clip.close()
+                    self.logger.info(f"Audio duration: {duration} seconds")
+                except Exception as e:
+                    self.logger.error(f"Error getting audio duration: {str(e)}")
+                    # Estimate duration based on script length (about 15 characters per second as fallback)
+                    duration = len(script) / 15.0
+                    self.logger.info(f"Estimated audio duration: {duration} seconds (based on text length)")
+                
+                return str(audio_file), duration
         except httpx.ConnectError as e:
             self.logger.error(f"Connection error to Venice API: {str(e)}")
             raise Exception(f"Failed to connect to Venice API: {str(e)}")
@@ -172,6 +186,106 @@ class VeniceService:
         except Exception as e:
             self.logger.error(f"Unexpected error generating image: {str(e)}")
             raise Exception(f"Unexpected error generating image: {str(e)}")
+    
+    async def generate_multiple_images(self, content, style, script, count=5):
+        """Generate multiple images for the video based on content, style and script.
+        
+        Args:
+            content (str): The topic for the video
+            style (str): The style of brainrot content
+            script (str): The script text to use for generating varied prompts
+            count (int): Number of images to generate
+            
+        Returns:
+            list: List of paths to the saved image files
+        """
+        try:
+            self.logger.info(f"Generating {count} images for content: {content}, style: {style}")
+            image_files = []
+            
+            # First, use the LLM to generate different prompts based on the script
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=self.headers,
+                    json={
+                        "model": "llama-3.1-405b",
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": "You are an expert at creating diverse image prompts for a video. Generate varied and interesting prompts based on the script."
+                            },
+                            {
+                                "role": "user",
+                                "content": f"Create {count} different image prompts to visualize this script about {content} in {style} style. Script: {script}. Return ONLY a numbered list of prompts."
+                            }
+                        ],
+                        "max_tokens": 500
+                    }
+                )
+                response.raise_for_status()
+                
+                # Extract the generated prompts
+                choices = response.json().get("choices", [])
+                if choices and len(choices) > 0:
+                    prompts_text = choices[0].get("message", {}).get("content", "")
+                    # Parse the numbered list
+                    prompts = []
+                    for line in prompts_text.strip().split("\n"):
+                        if line.strip() and any(line.strip().startswith(str(i) + ".") for i in range(1, count+1)):
+                            prompts.append(line.strip().split(".", 1)[1].strip())
+                    
+                    # If we couldn't parse enough prompts, generate some backup ones
+                    while len(prompts) < count:
+                        prompts.append(f"Create a captivating image about {content} for {style} style videos, image #{len(prompts)+1}")
+                
+                # Generate images for each prompt
+                for i, prompt in enumerate(prompts[:count]):
+                    image_file = self.temp_dir / f"{uuid.uuid4()}.png"
+                    
+                    response = await client.post(
+                        f"{self.base_url}/image/generate",
+                        headers=self.headers,
+                        json={
+                            "model": "fluently-xl",
+                            "prompt": prompt,
+                            "height": 512,
+                            "width": 512,
+                            "steps": 20,
+                            "return_binary": False,
+                            "hide_watermark": True,
+                            "format": "png",
+                        }
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    
+                    if "images" not in data or not data["images"]:
+                        continue
+                    
+                    # Decode and save image data
+                    image_data = base64.b64decode(data["images"][0])
+                    with open(image_file, "wb") as f:
+                        f.write(image_data)
+                    
+                    self.logger.info(f"Image {i+1}/{count} saved to {image_file}")
+                    image_files.append(str(image_file))
+                
+                # If we couldn't generate enough images, repeat the original method
+                if len(image_files) < count:
+                    self.logger.warning(f"Could only generate {len(image_files)} images with prompts, using fallback method for remaining images")
+                    remaining = count - len(image_files)
+                    for i in range(remaining):
+                        img_path = await self.generate_image(content, style)
+                        image_files.append(img_path)
+                
+                return image_files
+        except Exception as e:
+            self.logger.error(f"Error generating multiple images: {str(e)}")
+            # Fallback to single image generation if there's an error
+            self.logger.info("Falling back to single image generation")
+            img_path = await self.generate_image(content, style)
+            return [img_path]  # Return as a list with a single item
             
     def cleanup(self):
         """Clean up temporary files created by this service."""
