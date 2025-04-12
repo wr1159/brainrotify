@@ -53,7 +53,7 @@ class IPFSService:
             file_name = name or file_path.name
             
             # Prepare the multipart form data
-            form_data = {"network": "mainnet"}
+            form_data = {"network": "public"}
             if keyvalues:
                 form_data["keyvalues"] = json.dumps(keyvalues)
                 
@@ -154,7 +154,7 @@ class IPFSService:
             mock_hash = hex(hash(metadata_str) % 10**32)[2:]
             return f"ipfs://Qm{mock_hash[:32]}"
     
-    def create_metadata(self, content, style, video_ipfs_uri, thumbnail_ipfs_uri=None):
+    def create_metadata(self, content, style, video_ipfs_uri, ticker, description, thumbnail_ipfs_uri=None):
         """Create metadata for the NFT.
         
         Args:
@@ -162,17 +162,19 @@ class IPFSService:
             style (str): The style of the brainrot content
             video_ipfs_uri (str): The IPFS URI of the video
             thumbnail_ipfs_uri (str, optional): The IPFS URI of the thumbnail image
+            ticker (str, optional): Ticker symbol for the NFT
+            description (str, optional): Description of the video
             
         Returns:
             dict: The metadata for the NFT
         """
         metadata = {
-            "name": f"Brainrotify: {content} - {style}",
-            "description": f"A brainrot video about {content} in the style of {style}",
+            "name": ticker,
+            "description": description,
             "animation_url": video_ipfs_uri,
             "content": {
                 "uri": video_ipfs_uri,
-                "type": "video/mp4",
+                "mime": "video/mp4"
             },
             "attributes": [
                 {
@@ -189,6 +191,7 @@ class IPFSService:
                 }
             ]
         }
+        
         
         # Use the thumbnail as the image if provided, otherwise use the video
         metadata["image"] = thumbnail_ipfs_uri if thumbnail_ipfs_uri else video_ipfs_uri

@@ -6,6 +6,8 @@ class GenerateRequest(BaseModel):
     """Request model for the generate endpoint."""
     content: str = Field(..., description="The topic for the video (e.g., 'Chernobyl', 'Turtles')")
     style: str = Field(..., description="The style of brainrot content (e.g., 'Minecraft Parkour', 'Soap Cutting')")
+    ticker: str = Field(..., description="Ticker symbol for the NFT (e.g., BRNRT)")
+    description: str = Field(..., description="Description of the video")
     duration: Optional[int] = Field(60, description="Target duration of the video in seconds")
 
 
@@ -14,6 +16,7 @@ class GenerateResponse(BaseModel):
     metadata_uri: str = Field(..., description="IPFS URI for the metadata JSON")
     video_uri: str = Field(..., description="IPFS URI for the video file")
     script: str = Field(..., description="The generated script used for the video")
+    thumbnail_uri: str = Field("", description="IPFS URI for the thumbnail image")
 
 
 class ErrorResponse(BaseModel):

@@ -63,18 +63,20 @@ async def generate(
     3. Generate multiple images based on the content and style (1 per 10s of audio)
     4. Combine the images, speech, and subtitles into a video
     5. Upload the video to IPFS
-    6. Create and upload metadata to IPFS
+    6. Create and upload metadata to IPFS with ticker symbol and description
     7. Return the metadata URI
     
     The frontend can then use this metadata URI to mint an NFT.
     """
     try:
-        logger.info(f"Generating content for topic: {request.content}, style: {request.style}")
+        logger.info(f"Generating content for topic: {request.content}, style: {request.style}, ticker: {request.ticker}")
         
         result = await generation_service.generate_content(
-            request.content, 
-            request.style, 
-            request.duration
+            content=request.content, 
+            style=request.style, 
+            duration=request.duration,
+            ticker=request.ticker,
+            description=request.description
         )
         
         logger.info(f"Successfully generated content. Metadata URI: {result['metadata_uri']}")
@@ -82,7 +84,8 @@ async def generate(
         return GenerateResponse(
             metadata_uri=result["metadata_uri"],
             video_uri=result["video_uri"],
-            script=result["script"]
+            script=result["script"],
+            thumbnail_uri=result.get("thumbnail_uri", "")
         )
     
     except Exception as e:

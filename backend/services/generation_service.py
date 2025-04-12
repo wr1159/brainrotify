@@ -17,7 +17,7 @@ class GenerationService:
         )
         self.logger = logging.getLogger(__name__)
     
-    async def generate_content(self, content, style, duration=60, image_count=None):
+    async def generate_content(self, content, style, duration=60, image_count=None, ticker=None, description=None):
         """Generate a full video including script, TTS, multiple images, and upload to IPFS.
         
         Args:
@@ -26,9 +26,11 @@ class GenerationService:
             duration (int, optional): Target duration in seconds. Defaults to 60.
             image_count (int, optional): Number of images to generate. If None, will calculate
                                          based on audio duration (1 image per 10 seconds).
+            ticker (str, optional): Ticker symbol for the NFT
+            description (str, optional): Description of the video
             
         Returns:
-            dict: Result containing metadata_uri, video_uri, script, thumbnail_uri, audio_duration, and image_count
+            dict: Result containing metadata_uri, video_uri, script, and thumbnail_uri
         """
         try:
             # 1. Generate script
@@ -76,9 +78,16 @@ class GenerationService:
             self.logger.info("Uploading Video")
             video_uri = await self.ipfs_service.upload_file(video_file)
             
-            # 7. Create metadata with thumbnail
+            # 7. Create metadata with thumbnail, ticker, and description
             self.logger.info("Creating Metadata")
-            metadata = self.ipfs_service.create_metadata(content, style, video_uri, thumbnail_uri)
+            metadata = self.ipfs_service.create_metadata(
+                content, 
+                style, 
+                video_uri, 
+                thumbnail_uri,
+                ticker,
+                description
+            )
             
             # 8. Upload metadata to IPFS
             self.logger.info("Uploading Metadata")
