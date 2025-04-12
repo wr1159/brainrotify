@@ -26,13 +26,11 @@ const ShootingStars = () => {
 };
 
 export default function Home() {
-    const [mode, setMode] = useState<"script" | "generate">("script");
-    const [script, setScript] = useState("");
+    
     const [style, setStyle] = useState("");
     const [content, setContent] = useState("");
     const [ticker, setTicker] = useState("");
     const [description, setDescription] = useState("");
-    const [duration, setDuration] = useState("");
     const [showVideo, setShowVideo] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
 
