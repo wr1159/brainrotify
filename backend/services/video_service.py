@@ -9,6 +9,10 @@ import moviepy.editor as mpy
 import moviepy.video.fx.all as vfx
 import numpy as np
 import re
+import json
+import time
+from difflib import SequenceMatcher
+import whisper  # Import the whisper library directly
 
 class VideoService:
     def __init__(self):
@@ -16,6 +20,14 @@ class VideoService:
         self.temp_dir = Path(tempfile.gettempdir()) / "brainrotify_video"
         os.makedirs(self.temp_dir, exist_ok=True)
         self.logger = logging.getLogger(__name__)
+        # Pre-load Whisper model if available
+        self.whisper_model = None
+        try:
+            self.logger.info("Loading Whisper model...")
+            self.whisper_model = whisper.load_model("base") # Use base model by default for speed
+            self.logger.info("Whisper model loaded successfully")
+        except Exception as e:
+            self.logger.warning(f"Could not load Whisper model: {str(e)}")
     
     async def create_video(self, image_paths, audio_path, script):
         """
@@ -72,10 +84,10 @@ class VideoService:
                 # Concatenate all clips
                 video = mpy.concatenate_videoclips(clips, method="compose")
             
-            # Generate caption timings based on the script
-            caption_data = self._generate_caption_timings(script, duration)
+            # Generate caption timings using Whisper for accurate word timestamps
+            self.logger.info("Generating caption timings using Whisper")
+            caption_data = await self._get_whisper_timestamps(audio_path, script)
             self.logger.info(f"Generated {len(caption_data)} caption segments")
-            self.logger.info(caption_data)
             
             # Add captions to the video
             video = self._add_captions_to_video(video, caption_data, audio)
@@ -96,6 +108,209 @@ class VideoService:
         except Exception as e:
             self.logger.error(f"Error creating video: {str(e)}", exc_info=True)
             raise Exception(f"Error creating video: {str(e)}")
+    
+    async def _get_whisper_timestamps(self, audio_path, script):
+        """
+        Use Whisper to transcribe the audio and get accurate word timestamps,
+        then align with the script using fuzzy matching.
+        
+        Args:
+            audio_path (str): Path to the audio file
+            script (str): The reference script
+            
+        Returns:
+            list: Caption data with accurate word timing
+        """
+        try:
+            # Try to use the Python Whisper library
+            try:
+                word_timings = await self._whisper_transcribe_python(audio_path)
+                if word_timings:
+                    return self._align_transcription_with_script(word_timings, script)
+            except Exception as e:
+                self.logger.warning(f"Error using Whisper library: {str(e)}, falling back to estimate")
+            
+            # If Whisper fails, fall back to the estimation method
+            return self._generate_caption_timings(script, mpy.AudioFileClip(audio_path).duration)
+        except Exception as e:
+            self.logger.error(f"Error getting Whisper timestamps: {str(e)}")
+            # Fall back to estimation if all else fails
+            return self._generate_caption_timings(script, mpy.AudioFileClip(audio_path).duration)
+    
+    async def _whisper_transcribe_python(self, audio_path):
+        """
+        Use the Python Whisper library to transcribe audio and get word-level timestamps.
+        
+        Args:
+            audio_path (str): Path to the audio file
+            
+        Returns:
+            list: Word-level transcription data
+        """
+        try:
+            # If model isn't loaded yet, load it now
+            if self.whisper_model is None:
+                self.logger.info("Loading Whisper model on demand...")
+                self.whisper_model = whisper.load_model("tiny")
+            
+            # Run transcription in a thread pool to avoid blocking
+            self.logger.info(f"Transcribing audio file {audio_path}")
+            
+            # Use run_in_executor to run CPU-intensive task in a thread pool
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None,  # Use default executor
+                lambda: self.whisper_model.transcribe(
+                    audio_path,
+                    language="en",
+                    word_timestamps=True
+                )
+            )
+            
+            self.logger.info("Transcription complete")
+            
+            # Extract word timings from segments
+            words_with_timing = []
+            
+            for segment in result.get('segments', []):
+                for word_info in segment.get('words', []):
+                    # The format might be slightly different from the CLI output
+                    words_with_timing.append({
+                        'word': word_info.get('word', '').strip(),
+                        'start': word_info.get('start', 0),
+                        'end': word_info.get('end', 0),
+                        'highlighted': False  # Will be set during alignment
+                    })
+            
+            self.logger.info(f"Extracted {len(words_with_timing)} words with timestamps")
+            return words_with_timing
+        except Exception as e:
+            self.logger.error(f"Error in Python Whisper transcription: {str(e)}")
+            raise
+    
+    def _align_transcription_with_script(self, whisper_words, script):
+        """
+        Align the Whisper transcription with the original script using fuzzy matching.
+        
+        Args:
+            whisper_words (list): List of word dictionaries from Whisper
+            script (str): The original script
+            
+        Returns:
+            list: Caption data with aligned word timing
+        """
+        # Clean up the script and split into words
+        script_words = re.findall(r"[\w']+|[,.!?:;\-]", script.lower())
+        
+        # Get just the words from whisper
+        transcribed_words = [w['word'].lower() for w in whisper_words]
+        
+        # Keep track of matches for debugging
+        self.logger.info(f"Script words: {len(script_words)}, Transcribed words: {len(whisper_words)}")
+        
+        # Initialize aligned words list
+        aligned_words = []
+        
+        # For each script word, find the best matching word in the transcription
+        script_idx = 0
+        trans_idx = 0
+        
+        while script_idx < len(script_words) and trans_idx < len(whisper_words):
+            script_word = script_words[script_idx]
+            
+            # Try to find a good match within the next few transcribed words
+            best_match_idx = None
+            best_match_score = 0
+            
+            for look_ahead in range(min(10, len(whisper_words) - trans_idx)):
+                match_idx = trans_idx + look_ahead
+                trans_word = transcribed_words[match_idx]
+                
+                # Calculate similarity score
+                similarity = self._word_similarity(script_word, trans_word)
+                
+                if similarity > best_match_score and similarity > 0.6:  # 60% similarity threshold
+                    best_match_score = similarity
+                    best_match_idx = match_idx
+            
+            if best_match_idx is not None:
+                # Use timing from the matched transcribed word
+                timing = whisper_words[best_match_idx]
+                aligned_words.append({
+                    'word': script_word,
+                    'start': timing['start'],
+                    'end': timing['end'],
+                    'highlighted': (script_idx % 4 == 0) and not re.match(r'^[,.!?:;\-]$', script_word)
+                })
+                
+                # Advance indices
+                script_idx += 1
+                trans_idx = best_match_idx + 1
+            else:
+                # No good match found, estimate timing for this word
+                if trans_idx < len(whisper_words):
+                    # If there are still transcribed words, interpolate timing
+                    timing = whisper_words[trans_idx]
+                    # Estimate very short duration for this word
+                    word_duration = 0.2
+                    aligned_words.append({
+                        'word': script_word,
+                        'start': timing['start'],
+                        'end': timing['start'] + word_duration,
+                        'highlighted': (script_idx % 4 == 0) and not re.match(r'^[,.!?:;\-]$', script_word)
+                    })
+                script_idx += 1
+                # Don't advance trans_idx to try matching the next script word
+        
+        # Package it as a single caption segment
+        if aligned_words:
+            # Sort by start time to ensure proper order
+            aligned_words.sort(key=lambda w: w['start'])
+            
+            caption_data = [{
+                "start": 0,
+                "end": aligned_words[-1]['end'] + 1,  # End 1 second after last word
+                "words": aligned_words
+            }]
+            return caption_data
+        else:
+            # If alignment failed, fall back to estimation
+            audio_duration = aligned_words[-1]['end'] if aligned_words else 0
+            if audio_duration == 0:
+                audio_duration = whisper_words[-1]['end'] if whisper_words else 60
+            return self._generate_caption_timings(script, audio_duration)
+    
+    def _word_similarity(self, word1, word2):
+        """
+        Calculate similarity between two words using sequence matcher.
+        
+        Args:
+            word1 (str): First word
+            word2 (str): Second word
+            
+        Returns:
+            float: Similarity score between 0 and 1
+        """
+        if not word1 or not word2:
+            return 0
+        
+        # Exact match
+        if word1 == word2:
+            return 1.0
+            
+        # Clean up words (remove punctuation)
+        word1 = re.sub(r'[^\w\']', '', word1.lower())
+        word2 = re.sub(r'[^\w\']', '', word2.lower())
+        
+        if not word1 or not word2:
+            return 0
+            
+        # For very short words, require exact match
+        if len(word1) <= 2 or len(word2) <= 2:
+            return 1.0 if word1 == word2 else 0.0
+            
+        # Use sequence matcher for longer words
+        return SequenceMatcher(None, word1, word2).ratio()
     
     def _crop_to_aspect(self, video, aspect=9/16, overflow=False):
         """
@@ -130,8 +345,7 @@ class VideoService:
     def _generate_caption_timings(self, script, duration):
         """
         Generate caption timings for the script.
-        Since we don't have access to true word-level timing from the TTS engine,
-        we'll estimate timings based on text length and total duration.
+        Used as fallback when Whisper transcription fails.
         
         Args:
             script (str): The script text
@@ -141,7 +355,7 @@ class VideoService:
             list: List of caption segments with timing information
         """
         try:
-            self.logger.info("Generating caption timings")
+            self.logger.info("Generating fallback caption timings")
             
             # For better sync, use a single segment approach instead of sentences
             # This avoids issues with sentence segmentation affecting timing
@@ -151,7 +365,7 @@ class VideoService:
             word_groups = script.strip().split()
             for group in word_groups:
                 # Check if this is a single word (possibly with apostrophe) or multiple words with punctuation
-                if re.match(r"^[\w']+[,.!?:;]*$", group):
+                if re.match(r"^[\w']+[,.!?:;\-]*$", group):
                     # It's a single word (possibly with trailing punctuation)
                     words.append(group)
                 else:
@@ -167,7 +381,7 @@ class VideoService:
             # Count special characters as shorter
             total_word_weights = 0
             for word in words:
-                if re.match(r'^[,.!?:;-]$', word):  # Single punctuation
+                if re.match(r'^[,.!?:;\-]$', word):  # Single punctuation
                     total_word_weights += 0.5  # Punctuation counts as half a word
                 else:
                     # Words are weighted by their length
@@ -188,7 +402,7 @@ class VideoService:
             
             for i, word in enumerate(words):
                 # Set dynamic word duration based on word characteristics
-                if re.match(r'^[,.!?:;]$', word):  # Single punctuation
+                if re.match(r'^[,.!?:;\-]$', word):  # Single punctuation
                     word_duration = base_word_duration * 0.5
                     # Give extra pause after end of sentence punctuation
                     if word in ".!?":
@@ -204,7 +418,7 @@ class VideoService:
                         word_duration = base_word_duration * (1.0 + min(0.5, (word_len - 5) * 0.1))
                 
                 # Every 4th word is highlighted (except punctuation)
-                highlighted = (i % 4 == 0) and not re.match(r'^[,.!?:;]$', word)
+                highlighted = (i % 4 == 0) and not re.match(r'^[,.!?:;\-]$', word)
                 
                 words_meta.append({
                     "word": word,
@@ -296,12 +510,10 @@ class VideoService:
                 position_y = int(total_h * 0.85)  # Lower on screen (85% of height)
                 
                 # Add word clip with precise timing
-                # Using a short crossfade for smoother transitions
                 text_clips.append((word_clip
-                       .set_position((position_x, position_y))
-                       .set_start(word_start)
-                       .set_end(word_end)))
-                
+                    .set_position((position_x, position_y))
+                    .set_start(word_start)
+                    .set_end(word_end)))
             
             # Create final video with all clips
             # Make sure the final video has the original duration
@@ -325,141 +537,6 @@ class VideoService:
             # Fallback to returning the video without captions
             video.audio = audio
             return video
-    
-    def animate_text(
-        self,
-        video,
-        time,
-        text_meta,
-        audioclip,
-        font="Arial",
-        font_size=36,
-        text_color="white",  # Changed default color to white
-        stroke_color="black",
-        stroke_width=2,  # Reduced stroke width
-        highlight_color="red",  # Changed highlight to white too
-        fade_duration=0.1,  # Faster fade for better sync
-        stay_duration=0.5,
-        wrap_width_ratio=0.8,
-        shadow_offset=2,  # Reduced shadow offset
-        shadow_grow=1,  # Reduced shadow grow
-    ):
-        """
-        Adds audio and text to a video clip
-
-        Args:
-            video (VideoClip): The video to overlay the text captions onto
-            time (float): The time which the text captions should start on the video
-            text_meta (list): Metadata of the captions and the time which each word appears
-            audioclip (AudioClip): The audioclip to add to the video, associated with the captions
-            font (str): Font to use for the text
-            font_size (int): Font size
-            text_color (str): Color of the text
-            stroke_color (str): Color of the text stroke
-            stroke_width (float): Width of the text stroke
-            highlight_color (str): Color for highlighted words
-            fade_duration (float): Duration of the fade effect
-            stay_duration (float): How long text stays after being spoken
-            wrap_width_ratio (float): Ratio of screen width to use for text wrapping
-            shadow_offset (float): Offset for text shadow
-            shadow_grow (float): How much to grow the shadow
-            
-        Returns:
-            VideoClip: The composited video clip with the audio and captions added
-        """
-        try:
-            screensize = video.size
-
-            total_h = screensize[1]
-            total_w = screensize[0]
-            wrap_w = int(total_w * wrap_width_ratio)
-
-            text_clips = []
-            text_shadows = []
-            for text_detail in text_meta:
-                words_meta = text_detail["words"]
-                sentence_start_t = text_detail["start"] + time
-                sentence_end_t = text_detail["end"] + time + stay_duration
-
-                all_word_clips = []
-                for word_detail in words_meta:
-                    word = word_detail["word"]
-                    start_t = word_detail["start"] + sentence_start_t
-                    end_t = word_detail["end"] + sentence_start_t
-                    highlight = word_detail["highlighted"]
-                    word_clip = mpy.TextClip(
-                        word,
-                        fontsize=font_size,
-                        font=font,
-                        color=highlight_color if highlight else text_color,
-                        stroke_width=stroke_width,
-                        stroke_color=stroke_color,
-                        method='caption',  # Use caption method for better text rendering
-                    )
-                    word_shadow = mpy.TextClip(
-                        word,
-                        fontsize=font_size,
-                        font=font,
-                        color=stroke_color,
-                        stroke_width=stroke_width + shadow_grow,
-                        stroke_color=stroke_color,
-                        method='caption',
-                    )
-                    all_word_clips.append((word_clip, word_shadow, start_t, end_t))
-
-                all_lines = []
-                line = []
-                width = 0
-                height = 0
-                max_h = 0
-                for word_clip, word_shadow, word_start, word_end in all_word_clips:
-                    w, h = word_clip.size
-                    if h > max_h:
-                        max_h = h
-
-                    if width + w > wrap_w:
-                        all_lines.append(([l for l in line], width, max_h))
-                        line = []
-                        width = 0
-                        height += max_h
-                        max_h = 0
-
-                    width += w
-                    line.append((word_clip, word_shadow, word_start, word_end))
-                if len(line) > 0:
-                    all_lines.append(([l for l in line], width, max_h))
-
-                curr_h = int(total_h * 0.8)  # Position text at 80% of screen height
-                for line_items, line_width, line_height in all_lines:
-                    curr_w = int((total_w - line_width) / 2)
-                    for word_clip, word_shadow, word_start, word_end in line_items:
-                        text_clips.append(
-                            word_clip.set_position((curr_w, curr_h))
-                            .set_start(word_start)
-                            .set_end(sentence_end_t)
-                            .crossfadein(fade_duration)
-                        )
-                        text_shadows.append(
-                            word_shadow.set_position(
-                                (curr_w + shadow_offset, curr_h + shadow_offset)
-                            )
-                            .set_start(word_start)
-                            .set_end(sentence_end_t)
-                            .crossfadein(fade_duration)
-                        )
-                        curr_w += word_clip.size[0]
-                    curr_h += line_height
-
-            # Create the caption overlay with explicit duration from the input video
-            captions = mpy.CompositeVideoClip(
-                [video] + text_shadows + text_clips,
-                size=video.size
-            ).set_duration(video.duration)
-            
-            return captions
-        except Exception as e:
-            self.logger.error(f"Error in animate_text: {str(e)}")
-            return video  # Return original video on error
     
     async def cleanup(self):
         """Clean up temporary files."""
