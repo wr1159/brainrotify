@@ -82,81 +82,41 @@ export default function Home() {
           BrainRotify™ - The AI That Makes Your Brain Rot Faster
         </h1>
         
-        <div className="flex justify-center gap-4 mb-8">
-          <button
-            onClick={() => setMode('script')}
-            className={`px-6 py-3 rounded-full transition-all ${
-              mode === 'script'
-                ? 'bg-purple-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-            }`}
-          >
-            Enter Script
-          </button>
-          <button
-            onClick={() => setMode('generate')}
-            className={`px-6 py-3 rounded-full transition-all ${
-              mode === 'generate'
-                ? 'bg-purple-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-            }`}
-          >
-            Generate Script
-          </button>
+        <div className="space-y-10">
+          <input
+            type="text"
+            value={style}
+            onChange={(e) => setStyle(e.target.value)}
+            placeholder="Style (e.g., 'Extremely loud and obnoxious')"
+            className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+          <input
+            type="text"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="Content (e.g., 'Random memes and screaming')"
+            className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+          <input
+            type="text"
+            value={ticker}
+            onChange={(e) => setTicker(e.target.value)}
+            placeholder="Ticker (e.g., 'SIGMA MALE GRINDSET')"
+            className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Description (e.g., 'This will make your brain cells commit suicide')"
+            className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+         
         </div>
-
-        {mode === 'script' ? (
-          <div className="space-y-4">
-            <textarea
-              value={script}
-              onChange={(e) => setScript(e.target.value)}
-              placeholder="Enter your brain-rotting script here... (Warning: May cause irreversible brain damage)"
-              className="w-full h-64 p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <input
-              type="text"
-              value={style}
-              onChange={(e) => setStyle(e.target.value)}
-              placeholder="Style (e.g., 'Extremely loud and obnoxious')"
-              className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-            <input
-              type="text"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Content (e.g., 'Random memes and screaming')"
-              className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-            <input
-              type="text"
-              value={ticker}
-              onChange={(e) => setTicker(e.target.value)}
-              placeholder="Ticker (e.g., 'SIGMA MALE GRINDSET')"
-              className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Description (e.g., 'This will make your brain cells commit suicide')"
-              className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-            <input
-              type="text"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              placeholder="Duration (e.g., '30 seconds of pure agony')"
-              className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-        )}
 
         <button
           className="w-full mt-8 px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg text-white font-bold hover:opacity-90 transition-opacity"
-          onClick={() => alert('Your brain is now officially rotting! (This feature is totally unnecessary)')}
+          onClick={handleClick}
         >
           Generate Brain Rot Video
         </button>
