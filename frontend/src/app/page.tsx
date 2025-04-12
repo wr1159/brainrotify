@@ -26,10 +26,7 @@ const ShootingStars = () => {
     );
 };
 
-
-
 export default function Home() {
-    
     const [style, setStyle] = useState("");
     const [content, setContent] = useState("");
     const [ticker, setTicker] = useState("");
@@ -54,8 +51,8 @@ export default function Home() {
         <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white p-8 relative">
             <ShootingStars />
             <div className="w-full flex justify-center pb-4">
-                    <ConnectButton />
-                </div>
+                <ConnectButton />
+            </div>
 
             {/* Left GIF */}
             <div className="fixed left-4 -translate-y-1/2 hidden top-1/2 xl:block">
@@ -79,49 +76,48 @@ export default function Home() {
                 />
             </div>
 
-      <div className="max-w-4xl mx-auto relative z-10">
-        <h1 className="text-4xl font-bold mb-8 text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
-          BrainRotify™ - The AI That Makes Your Brain Rot Faster
-        </h1>
-        
-        <div className="space-y-10">
-          <input
-            type="text"
-            value={style}
-            onChange={(e) => setStyle(e.target.value)}
-            placeholder="Style (e.g., 'Extremely loud and obnoxious')"
-            className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-          <input
-            type="text"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Content (e.g., 'Random memes and screaming')"
-            className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-          <input
-            type="text"
-            value={ticker}
-            onChange={(e) => setTicker(e.target.value)}
-            placeholder="Ticker (e.g., 'SIGMA MALE GRINDSET')"
-            className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-          <input
-            type="text"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Description (e.g., 'This will make your brain cells commit suicide')"
-            className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-         
-        </div>
+            <div className="max-w-4xl mx-auto relative z-10">
+                <h1 className="text-4xl font-bold mb-8 text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+                    BrainRotify™ - The AI That Makes Your Brain Rot Faster
+                </h1>
 
-        <button
-          className="w-full mt-8 px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg text-white font-bold hover:opacity-90 transition-opacity"
-          onClick={handleClick}
-        >
-          Generate Brain Rot Video
-        </button>
+                <div className="space-y-10">
+                    <input
+                        type="text"
+                        value={style}
+                        onChange={(e) => setStyle(e.target.value)}
+                        placeholder="Style (e.g., 'Extremely loud and obnoxious')"
+                        className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    <input
+                        type="text"
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        placeholder="Content (e.g., 'Random memes and screaming')"
+                        className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    <input
+                        type="text"
+                        value={ticker}
+                        onChange={(e) => setTicker(e.target.value)}
+                        placeholder="Ticker (e.g., 'SIGMA MALE GRINDSET')"
+                        className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    <input
+                        type="text"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Description (e.g., 'This will make your brain cells commit suicide')"
+                        className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                </div>
+
+                <button
+                    className="w-full mt-8 px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg text-white font-bold hover:opacity-90 transition-opacity"
+                    onClick={handleClick}
+                >
+                    Generate Brain Rot Video
+                </button>
 
                 {/* Bottom Square GIF */}
                 <div className="flex justify-between">
