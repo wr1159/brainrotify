@@ -1,17 +1,21 @@
 # Brain Rot AI PumpFun (Brainrotify)
 
-Generate unique and fun **Brainrot** videos for Zora using your custom parameters! 
+Generate unique and fun **Brainrot** videos for Zora using your custom parameters!
 
-Submission for Encode AI Hackathon
+Submission for Encode AI Hackathon.
+2nd Place for Zora Creator Track
 
-## Features 
+## Demo Link
+
+[youtube](https://www.youtube.com/watch?v=UuxnBU78YXM)
+
+## Features
 
 - Content and style inputs to generate desired content.
 - Image generation based on the inputs.
 - Full script generated for text to speech to nararte.
 - Accurate caption timings for the generated **Brainrot** video.
 - Uploads content directly to Zora.
-
 
 ## Todo
 
@@ -68,4 +72,3 @@ npm run lint
 ```bash
 npm run lint-fix
 ```
-
