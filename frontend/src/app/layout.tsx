@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-    title: "Create Next App",
-    description: "Brainotify - The AI That Makes Your Brain Rot Faster",
+    title: "Brainrotify",
+    description: "Brainrotify - The AI That Makes Your Brain Rot Faster",
 };
 
 export default async function RootLayout({
