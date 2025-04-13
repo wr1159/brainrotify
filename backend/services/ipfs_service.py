@@ -154,7 +154,7 @@ class IPFSService:
             mock_hash = hex(hash(metadata_str) % 10**32)[2:]
             return f"ipfs://Qm{mock_hash[:32]}"
     
-    def create_metadata(self, content, style, video_ipfs_uri, ticker, description, thumbnail_ipfs_uri=None):
+    def create_metadata(self, content, style, video_ipfs_uri, thumbnail_ipfs_uri , ticker, description):
         """Create metadata for the NFT.
         
         Args:
@@ -171,29 +171,14 @@ class IPFSService:
         metadata = {
             "name": ticker,
             "description": description,
+            "symbol": ticker,
+            "image": thumbnail_ipfs_uri,
             "animation_url": video_ipfs_uri,
             "content": {
                 "uri": video_ipfs_uri,
                 "mime": "video/mp4"
             },
-            "attributes": [
-                {
-                    "trait_type": "Content",
-                    "value": content
-                },
-                {
-                    "trait_type": "Style",
-                    "value": style
-                },
-                {
-                    "trait_type": "Generator",
-                    "value": "Brainrotify"
-                }
-            ]
         }
         
-        
-        # Use the thumbnail as the image if provided, otherwise use the video
-        metadata["image"] = thumbnail_ipfs_uri if thumbnail_ipfs_uri else video_ipfs_uri
         
         return metadata 

@@ -5,6 +5,7 @@ import Image from "next/image";
 import ConnectButton from "@/components/ConnectButton";
 import { useAccount, useWriteContract } from "wagmi";
 import { zoraFactoryABI, zoraFactoryAddress } from "@/contract";
+import { validateMetadataJSON } from "@zoralabs/coins-sdk";
 
 // Shooting Stars Component
 const ShootingStars = () => {
@@ -35,30 +36,55 @@ export default function Home() {
     const [description, setDescription] = useState("");
     const [showVideo, setShowVideo] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const validated = validateMetadataJSON({
+        name: "whiplash",
+        description: "so peak...",
+        animation_url:
+            "ipfs://bafybeigzcuo5msb33zgpl4mqwiavyp4uagmxcknlkmzsdtu2ul3uz4rwxm",
+        content: {
+            uri: "ipfs://bafybeigzcuo5msb33zgpl4mqwiavyp4uagmxcknlkmzsdtu2ul3uz4rwxm",
+            mime: "video/mp4",
+        },
+        attributes: [
+            {
+                trait_type: "Content",
+                value: "top 3 shows or movie like whiplash",
+            },
+            {
+                trait_type: "Style",
+                value: "in the style of fletcher from whiplash movie and quote as many quotes from whiplash as possible",
+            },
+            {
+                trait_type: "Generator",
+                value: "Brainrotify",
+            },
+        ],
+        image: "ipfs://bafybeidjphkvbotxdqtne6n6kevbu2imjmv7vavjmmbhweemaxn4qe6ijy",
+    });
+    console.log("validated", validated);
     const { address } = useAccount();
-    const metadataUri = `ipfs://bafybeigoxzqzbnxsn35vq7lls3ljxdcwjafxvbvkivprsodzrptpiguysy`;
+    // const metadataUri = `ipfs://bafybeigoxzqzbnxsn35vq7lls3ljxdcwjafxvbvkivprsodzrptpiguysy`;
     const { writeContract, isSuccess, isError, error } = useWriteContract();
     async function createMyCoin() {
         try {
-            // const result = await createCoin(
-            //     coinParams,
-            //     walletClient,
-            //     publicClient
-            // );
-            // const resp = await fetch("http://localhost:8000/generate", {
-            //     method: "POST",
-            //     headers: {
-            //         "Content-Type": "application/json",
-            //     },
-            //     body: JSON.stringify({
-            //         style: style,
-            //         content: content,
-            //         ticker: ticker,
-            //         description: description,
-            //     }),
-            // });
-            // const data = await resp.json();
-            // const metadataUri = data.metadata_uri;
+            const resp = await fetch("http://localhost:8000/generate", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    style: style,
+                    content: content,
+                    ticker: ticker,
+                    description: description,
+                }),
+            });
+            const data = await resp.json();
+            const metadataUri =
+                data.metadata_uri ||
+                "ipfs://bafybeigoxzqzbnxsn35vq7lls3ljxdcwjafxvbvkivprsodzrptpiguysy";
+            console.log("metadataUri", metadataUri);
+            console.log("data", data);
             writeContract({
                 address: zoraFactoryAddress,
                 abi: zoraFactoryABI,
@@ -135,30 +161,30 @@ export default function Home() {
                 <div className="space-y-10">
                     <input
                         type="text"
-                        value={style}
-                        onChange={(e) => setStyle(e.target.value)}
-                        placeholder="Style (e.g., 'Extremely loud and obnoxious')"
-                        className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    />
-                    <input
-                        type="text"
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
-                        placeholder="Content (e.g., 'Random memes and screaming')"
+                        placeholder="Content (e.g., 'calculus derivative x intergration strongest of the history vs the strongest of today isaac newton')"
                         className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                     />
                     <input
                         type="text"
-                        value={ticker}
-                        onChange={(e) => setTicker(e.target.value)}
-                        placeholder="Ticker (e.g., 'SIGMA MALE GRINDSET')"
+                        value={style}
+                        onChange={(e) => setStyle(e.target.value)}
+                        placeholder="Style (e.g., 'jujutsu kaisen lobotomy brainrot')"
                         className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                     />
                     <input
                         type="text"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Description (e.g., 'This will make your brain cells commit suicide')"
+                        placeholder="Name (e.g., 'Calculus Brainrot is so peak...')"
+                        className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    <input
+                        type="text"
+                        value={ticker}
+                        onChange={(e) => setTicker(e.target.value)}
+                        placeholder="Ticker (e.g., 'CALC')"
                         className="w-full p-4 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                     />
                 </div>
