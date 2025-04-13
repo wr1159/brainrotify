@@ -86,7 +86,8 @@ class IPFSService:
                 
                 cid = result["data"]["cid"]
                 self.logger.info(f"File uploaded successfully with CID: {cid}")
-                return f"ipfs://{cid}"
+                return f"https://apricot-defensive-vole-912.mypinata.cloud/ipfs/{cid}"
+                # return f"ipfs://{cid}"
                 
         except Exception as e:
             self.logger.error(f"Error uploading file to IPFS: {str(e)}")
@@ -142,7 +143,8 @@ class IPFSService:
                 
                 cid = result["IpfsHash"]
                 self.logger.info(f"JSON uploaded successfully with CID: {cid}")
-                return f"ipfs://{cid}"
+                return f"https://apricot-defensive-vole-912.mypinata.cloud/ipfs/{cid}"
+                # return f"ipfs://{cid}"
                 
         except Exception as e:
             self.logger.error(f"Error uploading JSON to IPFS: {str(e)}")
